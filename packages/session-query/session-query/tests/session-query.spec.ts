@@ -114,6 +114,14 @@ function entryRevision(entry: { events: SessionEvent[] }): SessionPersistenceRev
 }
 
 class TestPersistence extends SessionPersistence {
+  /**
+   * @inheritdoc
+   * @returns never — this double predates deletion and exercises no delete path.
+   */
+  async remove(): Promise<boolean> {
+    throw new Error('this persistence double does not implement remove()')
+  }
+
   static entries = new Map<SessionIdType, { meta: SessionHeader; events: SessionEvent[] }>()
   static listFailure: unknown
   static listOverride: ((signal?: AbortSignal) => Promise<SessionPersistenceSnapshot[]>) | undefined

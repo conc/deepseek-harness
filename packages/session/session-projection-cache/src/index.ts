@@ -122,6 +122,27 @@ export class SessionProjectionCache extends Service {
   }
 
   /**
+   * Drop one Session's stored checkpoint record.
+   *
+   * Called when a Session's durable record is deleted: the row carries projected
+   * values (turn outlines and titles included), so a surviving record would both
+   * outlive the deleted conversation and seed a later id reuse. Fail-soft like
+   * every other write path — the caller learns the outcome, a failure warns.
+   * @param id - the Session whose record is dropped.
+   * @returns whether a record was present and removed.
+   */
+  async drop(id: SessionId): Promise<boolean> {
+    const table = this.table
+    if (table === undefined) return false
+    try {
+      return await table.delete(id)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`session-projection-cache: failed to drop "${id}": ${String(error)}`)
+      return false
+    }
+  }
+
+  /**
    * The stored record for one session, accepted only when its bound log
    * identity matches `expected`. A session id names a slot, not a lifecycle:
    * a recreated id or a persistence store swapped under a surviving cache

@@ -105,6 +105,14 @@ interface StoredSession {
 
 /** Minimal controllable persistence provider for service-level tests. */
 class TestPersistence extends SessionPersistence {
+  /**
+   * @inheritdoc
+   * @returns never — this double predates deletion and exercises no delete path.
+   */
+  async remove(): Promise<boolean> {
+    throw new Error('this persistence double does not implement remove()')
+  }
+
   readonly durable = new Map<SessionId, StoredSession>()
   readFailure: Error | undefined
   appendFailure: Error | undefined

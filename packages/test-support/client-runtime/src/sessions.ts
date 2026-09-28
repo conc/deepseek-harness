@@ -311,7 +311,7 @@ export class TestSessions implements ISessions {
 
   /** Calls observed on the service-level face, newest last. */
   readonly calls: {
-    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork'
+    method: 'create' | 'refreshProjections' | 'refresh' | 'search' | 'fork' | 'delete'
     args: unknown[]
   }[] = []
 
@@ -326,6 +326,32 @@ export class TestSessions implements ISessions {
    * @param stabilize - the owning runtime's act wrapper.
    * @param rootCtx - the runtime's Cordis root; scope fibers mount under it.
    */
+  /**
+   * Remove one Session fixture from the catalog, dropping its generation the
+   * way the real Host removal frame does.
+   * @param sessionId - Session to remove.
+   * @returns completion after the catalog update is stabilized.
+   */
+  async delete(sessionId: SessionId): Promise<void> {
+    this.calls.push({ method: 'delete', args: [sessionId] })
+    this.records.delete(sessionId)
+    const generation = this.generations.get(sessionId)
+    if (generation !== undefined) {
+      generation.live = false
+      generation.retention = EMPTY_RETAIN_INFO
+      generation.lifetime.abort(new Error(`test session "${sessionId}" was deleted`))
+      this.generations.delete(sessionId)
+      this.publishRetention(sessionId)
+    }
+    await this.stabilize(() => {
+      this.list.update((state) => {
+        const byId = { ...state.byId }
+        delete byId[sessionId]
+        return { ...state, ids: state.ids.filter(id => id !== sessionId), byId }
+      })
+    })
+  }
+
   constructor(private readonly stabilize: Stabilizer, private readonly rootCtx: Context) {
     this.list = createSnapshotStore<SessionListState>({
       ids: [], byId: {}, phase: 'ready', projectionsBySession: {},

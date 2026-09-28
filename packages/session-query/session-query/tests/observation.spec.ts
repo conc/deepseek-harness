@@ -489,6 +489,14 @@ describe('SessionObservationReader cold path', () => {
     }
 
     class SwapPersistence extends SessionPersistence {
+      /**
+       * @inheritdoc
+       * @returns never — this double predates deletion and exercises no delete path.
+       */
+      async remove(): Promise<boolean> {
+        throw new Error('this persistence double does not implement remove()')
+      }
+
       static readCalls = 0
 
       create(): Promise<SessionHandle> {

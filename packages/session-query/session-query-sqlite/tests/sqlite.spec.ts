@@ -129,6 +129,14 @@ class TestHandle implements SessionHandle {
 }
 
 class TestPersistence extends SessionPersistence {
+  /**
+   * @inheritdoc
+   * @returns never — this double predates deletion and exercises no delete path.
+   */
+  async remove(): Promise<boolean> {
+    throw new Error('this persistence double does not implement remove()')
+  }
+
   static entries = new Map<SessionIdType, { meta: SessionHeader; events: SessionEvent[] }>()
   static revisions = new Map<SessionIdType, number>()
   static nextRevision = 0

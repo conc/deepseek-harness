@@ -347,6 +347,39 @@ export interface ArchiveSessionInjected {
 }
 
 /**
+ * Delete action share (menu row). The callbacks carry the whole behavior: the
+ * Host call and the stop-and-delete confirmation a refusal for running work
+ * raises. Deletion is destructive and final, so nothing here offers an undo.
+ */
+export interface DeleteSessionInjected {
+  /**
+   * Delete a Session, log and all. A Session with running work is not deleted
+   * by this call: the Host's refusal opens the stop-and-delete confirmation.
+   */
+  deleteSession: (sessionId: SessionId) => void
+}
+
+/** A stop-and-delete confirmation the delete action asked for. */
+export interface SessionDeleteConfirmRequest {
+  /** Session to stop and delete. */
+  readonly sessionId: SessionId
+  /** Stored display title for the dialog copy. */
+  readonly displayTitle: string
+}
+
+/** The stop-and-delete dialog's behavior share. */
+export interface SessionDeleteConfirmInjected {
+  hooks: {
+    /** The pending stop-and-delete request, or null. */
+    deleteRequest: HostObservable<SessionDeleteConfirmRequest | null>
+  }
+  /** Drop the pending request, closing the dialog. */
+  settleSessionDelete: () => void
+  /** Stop the Session's running work and then delete it. */
+  stopAndDeleteSession: (sessionId: SessionId) => Promise<void>
+}
+
+/**
  * A stop-and-archive confirmation the archive action asked for: the Host
  * refused the plain archive because this work still runs.
  */
@@ -437,6 +470,13 @@ export type SessionArchiveConfirmProps =
   & PropsLocale<'workspace'>
   & Omit<SessionArchiveConfirmInjected, 'hooks'>
   & PropsHooks<SessionArchiveConfirmInjected['hooks']>
+
+/** Props of the stop-and-delete dialog entry in `shell.overlay`. */
+export type SessionDeleteConfirmProps =
+  PropsRuntime<'shell.overlay'>
+  & PropsLocale<'workspace'>
+  & Omit<SessionDeleteConfirmInjected, 'hooks'>
+  & PropsHooks<SessionDeleteConfirmInjected['hooks']>
 
 /**
  * Props of the row toast entry in `shell.overlay`. The declared viewing store

@@ -1,6 +1,7 @@
 /** Session Remote owner: cold reads, explicit Agent commands, and live control state. */
 
-import { hostname } from 'node:os'
+import {
+  hostname } from 'node:os'
 import { resolve } from 'node:path'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-fs'
@@ -8,17 +9,26 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { errorChain, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-client-file-upload'
-import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativeFileApplication, openNativeAssociatedPath, revealNativePath } from '@deepseek-ai/dsh-native-command'
+import { canOpenNativePath,
+  nativeFileManager,
+  nativeFileApplications,
+  openNativeFileApplication,
+  openNativeAssociatedPath,
+  revealNativePath } from '@deepseek-ai/dsh-native-command'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
-import { SessionQueryError, type SessionObservation } from '@deepseek-ai/dsh-session-query'
-import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { SessionQueryError,
+  type SessionObservation } from '@deepseek-ai/dsh-session-query'
+import { Remote,
+  RemoteError,
+  TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import {
   ApiSessionAgentController,
   inspectApiSession,
   type ApiSessionAgentResult,
-} from './agent.ts'
+  } from './agent.ts'
 import { SessionCommandController } from './commands.ts'
+import { SessionDeleteController } from './delete.ts'
 import { SessionControlController } from './control.ts'
 import { SessionHistoryController } from './history.ts'
 import { SessionFileReferences } from './file-references.ts'
@@ -61,6 +71,8 @@ import type {
   SessionProjectionValues,
   SessionUpdateQueueRequest,
   SessionUpdateQueueValue,
+  SessionDeleteRequest,
+  SessionDeleteValue,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -117,6 +129,7 @@ export class SessionController extends TypertRemoteService {
 
   private readonly agents: ApiSessionAgentController
   private readonly commands: SessionCommandController
+  private readonly deletion: SessionDeleteController
   private readonly controlState: SessionControlController
   private readonly history: SessionHistoryController
   private readonly listState: ApiSessionList
@@ -137,6 +150,7 @@ export class SessionController extends TypertRemoteService {
     installModelSelectionProjection(ctx)
     this.agents = new ApiSessionAgentController(ctx)
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
+    this.deletion = new SessionDeleteController(ctx, this.agents)
     ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
       const result = await this.agents.resolveAgent(sessionId)
       if ('error' in result) throw result.error
@@ -516,6 +530,20 @@ export class SessionController extends TypertRemoteService {
    * @param signal - cancellation owned by the Remote stream carrier.
    * @returns one complete baseline followed by live replacement frames.
    */
+  /**
+   * Delete one Session: its durable record, its projection checkpoint, and its
+   * Workspace, archive, and pin membership. An attached Session is stopped and
+   * detached first; running work refuses unless the caller already confirmed
+   * stopping it.
+   * @param request - Session identity and whether confirmed running work is stopped.
+   * @param signal - optional cancellation for the deletion.
+   * @returns whether a durable record existed and was removed.
+   */
+  @Remote('delete')
+  delete(request: SessionDeleteRequest, signal: AbortSignal): Promise<SessionDeleteValue> {
+    return this.deletion.delete(request, signal)
+  }
+
   @Remote({ mode: 'stream' })
   control(signal: AbortSignal): AsyncIterable<SessionControlFrame> {
     return this.controlState.control(signal)

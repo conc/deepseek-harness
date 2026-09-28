@@ -79,6 +79,22 @@ export class SessionCreateError extends Error {
 }
 
 /** Structured session-fork failure. */
+/** A Host refusal while deleting a Session. */
+export class SessionDeleteError extends Error {
+  override readonly name = 'SessionDeleteError'
+
+  /**
+   * @param sessionId - requested Session identity.
+   * @param rpcError - Host business or folded transport failure.
+   */
+  constructor(
+    readonly sessionId: SessionId,
+    readonly rpcError: { readonly code: string; readonly message: string },
+  ) {
+    super(`session delete failed: ${rpcError.code}: ${rpcError.message}`)
+  }
+}
+
 export class SessionForkError extends Error {
   override readonly name = 'SessionForkError'
 
@@ -419,6 +435,20 @@ export class ClientSessions implements ISessions {
   /** Rebuild the Session baseline and every opened window after connection. */
   handleConnected(): void {
     this.manager.handleConnected()
+  }
+
+  /**
+   * Delete one Session Host-side. The catalog follows the Host's removal frame,
+   * so this call only has to surface the refusal.
+   * @param sessionId - Session to delete.
+   * @param options - `stopActivity` abandons confirmed running work instead of being refused.
+   * @returns completion after the Host deleted the record.
+   * @throws {SessionDeleteError} with the Host refusal.
+   */
+  async delete(sessionId: SessionId, options: { readonly stopActivity?: boolean } = {}): Promise<void> {
+    const result = await this.manager.delete(sessionId, options)
+    if (!result.ok) throw new SessionDeleteError(sessionId, result.error)
+    this.projectList()
   }
 
   /**

@@ -6,30 +6,53 @@
  * @module @deepseek-ai/dsh-session-persistence-jsonl
  */
 
-import { Context } from '@deepseek-ai/cordis'
+import {
+  Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import {
   createSessionFormatCatalogWithChildren,
   SessionFormatUnsupportedMigrationError,
   sessionFormatCatalog,
-} from '@deepseek-ai/dsh-session-format-catalog'
-import { readdirSync, type Dirent } from 'node:fs'
-import { open, mkdir, readdir, realpath, link, rm, stat, truncate } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+  } from '@deepseek-ai/dsh-session-format-catalog'
+import { readdirSync,
+  type Dirent } from 'node:fs'
+import { open,
+  mkdir,
+  readdir,
+  realpath,
+  link,
+  rm,
+  stat,
+  truncate } from 'node:fs/promises'
+import { dirname,
+  join,
+  resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { scheduler } from 'node:timers/promises'
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash,
+  randomBytes } from 'node:crypto'
 import {
-  SessionPersistence, SessionPersistenceRevision, SessionFormatUnsupportedError,
+  SessionPersistence,
+  SessionPersistenceRevision,
+  SessionFormatUnsupportedError,
   SessionPersistenceCorruptionError,
-  SessionAlreadyExistsError, SessionPersistenceNotFoundError,
-  assertStoredId, materializeCreateHeader, sessionFormatVersionRefusal, validateStoredEvents,
-  type SessionAccess, type SessionHandle,
+  SessionAlreadyExistsError,
+  SessionPersistenceNotFoundError,
+  assertStoredId,
+  materializeCreateHeader,
+  sessionFormatVersionRefusal,
+  validateStoredEvents,
+  type SessionAccess,
+  type SessionHandle,
   type SessionHandleReadResult,
-  type SessionLocation, type SessionPersistenceCreateOptions,
-  type SessionPersistenceListOptions, type SessionPersistenceOpenOptions,
-  type SessionPersistenceSnapshot, type SessionPersistenceStatOptions,
+  type SessionLocation,
+  type SessionPersistenceCreateOptions,
+  type SessionPersistenceListOptions,
+  type SessionPersistenceOpenOptions,
+  type SessionPersistenceSnapshot,
+  type SessionPersistenceStatOptions,
   type SessionPersistenceRevision as PersistenceRevision,
+  SessionPersistenceRemoveOptions,
 } from '@deepseek-ai/dsh-session-persistence'
 import { JsonlBackendTracker, JsonlSessionHandle, type StorageHandleState } from './storage.ts'
 import { SessionWriteLease } from './lease.ts'
@@ -330,6 +353,40 @@ class JsonlSessionPersistence extends SessionPersistence {
     // session leaves no filesystem footprint at all.
     this.tracker.registerCreated(snapshot, inheritedEventCount)
     return this.tracker.adopt(new JsonlSessionHandle(this, snapshot.id, snapshot, 'write', { cursor: 0, materialized: false, inheritedEventCount }))
+  }
+
+  /**
+   * Delete one stored session's artifact directory.
+   *
+   * The id is claimed for the duration so a concurrent create/open cannot adopt
+   * it mid-delete, and an already-held claim (an unmaterialized creator or an
+   * open write handle) refuses with {@link SessionAlreadyOwnedError}. Removal
+   * takes the whole per-session directory — log generations, the lock file, and
+   * any session-local artifact beside them — and drops the parsed/migration
+   * memos so a reused id can never read a deleted log.
+   * @param id - the stored session to delete.
+   * @param options - optional cancellation.
+   * @returns whether a durable artifact existed and was removed.
+   */
+  async remove(id: SessionId, options?: SessionPersistenceRemoveOptions): Promise<boolean> {
+    options?.signal?.throwIfAborted()
+    this.tracker.claimWrite(id)
+    try {
+      const snapshot = await this.stat(id, options?.signal === undefined ? undefined : { signal: options.signal })
+      options?.signal?.throwIfAborted()
+      if (snapshot === undefined) return false
+      this.coldLogMemo.delete(id)
+      this.migrationPreparations.delete(id)
+      await rm(sessionDir(this.root, snapshot.header.cwd, id), {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      })
+      return true
+    } finally {
+      this.tracker.releaseClaim(id)
+    }
   }
 
   /**

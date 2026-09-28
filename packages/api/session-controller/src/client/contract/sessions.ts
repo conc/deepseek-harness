@@ -160,4 +160,16 @@ export interface ISessions {
    * @returns the live binding, or undefined without a retained generation.
    */
   binding(id: SessionId): SessionBinding | undefined
+  /**
+   * Delete one Session from the Host: its durable record, its projection
+   * checkpoint, and its Workspace, archive, and pin membership. An attached
+   * Session is stopped and detached first; running work refuses unless
+   * `stopActivity` was confirmed with the user. The row leaves the catalog
+   * through the Host's removal frame, so no local catalog write is needed.
+   * @param sessionId - Session to delete.
+   * @param options - `stopActivity` abandons confirmed running work instead of being refused.
+   * @returns completion after the Host deleted the record.
+   * @throws {SessionDeleteError} with the Host refusal for any failure.
+   */
+  delete(sessionId: SessionId, options?: { readonly stopActivity?: boolean }): Promise<void>
 }

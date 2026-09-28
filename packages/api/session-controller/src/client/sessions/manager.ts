@@ -1,7 +1,10 @@
 /** Host catalog, durable projection caches, and explicitly retained Client instances. */
 
-import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
-import { SessionSeq, type SessionId, type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
+import type {
+  SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
+import { SessionSeq,
+  type SessionId,
+  type SessionSeqCursor } from '@deepseek-ai/dsh-session/types'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import type {
@@ -10,6 +13,7 @@ import type {
   SessionProjectionHints,
   SessionRenameValue,
   SessionSummary,
+  SessionDeleteValue,
 } from '../../types.ts'
 import { mergeOrderedBaseline } from '../ordered-baseline.ts'
 import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
@@ -548,6 +552,23 @@ export class SessionManager {
       } })
     }
     return result
+  }
+
+  /**
+   * Contract session.delete. The row leaves the catalog through the Host's
+   * `api-session/removed` frame, so no local mutation is recorded here.
+   * @param sessionId - Session to delete.
+   * @param options - `stopActivity` abandons confirmed running work instead of being refused.
+   * @returns the Host deletion result.
+   */
+  async delete(
+    sessionId: SessionId,
+    options: { readonly stopActivity?: boolean } = {},
+  ): Promise<RemoteResult<SessionDeleteValue>> {
+    return await this.remote.session.delete({
+      sessionId,
+      ...options.stopActivity === undefined ? {} : { stopActivity: options.stopActivity },
+    })
   }
 
   /**

@@ -624,3 +624,20 @@ export type SessionProjectionValue = JsonValue
 
 /** Application metadata returned by the serving desktop for one file. */
 export type SessionWorkspacePathApplication = NativeFileApplication
+
+/** Request: delete one Session's durable record and its projection checkpoint. */
+export interface SessionDeleteRequest {
+  /** Session to delete. */
+  readonly sessionId: SessionId
+  /**
+   * Stop running work instead of refusing it. The caller sets this only after
+   * confirming with the user that the listed work is abandoned.
+   */
+  readonly stopActivity?: boolean
+}
+
+/** Result of a Session deletion. */
+export interface SessionDeleteValue {
+  /** Whether a durable record existed and was removed. */
+  readonly deleted: boolean
+}

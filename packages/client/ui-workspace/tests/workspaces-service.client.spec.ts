@@ -163,6 +163,13 @@ class FakeSessions implements ISessions {
   declare readonly sessionOf: ISessions['sessionOf']
   declare readonly binding: ISessions['binding']
 
+  readonly deleteCalls: SessionId[] = []
+
+  delete(sessionId: SessionId): Promise<void> {
+    this.deleteCalls.push(sessionId)
+    return Promise.resolve()
+  }
+
   constructor(initial: SessionListState) {
     this.list = new MutableSource(initial)
     this.create = vi.fn<ISessions['create']>(async options =>
