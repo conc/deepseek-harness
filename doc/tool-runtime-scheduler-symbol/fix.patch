@@ -1,0 +1,39 @@
+diff --git a/packages/core/tools/src/index.ts b/packages/core/tools/src/index.ts
+index ca89f37..ea097e8 100644
+--- a/packages/core/tools/src/index.ts
++++ b/packages/core/tools/src/index.ts
+@@ -475,9 +475,17 @@ export interface ToolRuntimeScheduler {
+
+ /**
+  * Scheduler entry point omitted from the generated named service API.
++ *
++ * Registered so every loaded copy of this module shares one symbol:
++ * `dsh-agent-loop` reads this key off `ctx.tools`, and a per-evaluation
++ * `Symbol` is private to one copy, failing every tool call with
++ * `Cannot read properties of undefined (reading 'prepare')`.
++ *
++ * The inference carries the `unique symbol` type; an explicit
++ * `: unique symbol` annotation rejects `Symbol.for`'s `symbol` return.
+  * @internal
+  */
+-export const TOOL_RUNTIME_SCHEDULER: unique symbol = Symbol('@deepseek-ai/dsh-tools.scheduler')
++export const TOOL_RUNTIME_SCHEDULER = Symbol.for('@deepseek-ai/dsh-tools.scheduler')
+
+ /** Canonical error code for cancellation after a tool body was invoked. */
+ export const TOOL_ABORTED = 'ABORTED'
+diff --git a/packages/core/tools/tests/scheduler-symbol.spec.ts b/packages/core/tools/tests/scheduler-symbol.spec.ts
+new file mode 100644
+index 0000000..ec7e371
+--- /dev/null
++++ b/packages/core/tools/tests/scheduler-symbol.spec.ts
+@@ -0,0 +1,10 @@
++/** Pins the scheduler seam to one process-global identity: dsh-agent-loop reads it off ctx.tools. */
++
++import { describe, expect, it } from 'vitest'
++import { TOOL_RUNTIME_SCHEDULER } from '@deepseek-ai/dsh-tools'
++
++describe('TOOL_RUNTIME_SCHEDULER', () => {
++  it('is a registered symbol, so every loaded copy of the module agrees', () => {
++    expect(Symbol.keyFor(TOOL_RUNTIME_SCHEDULER)).toBe('@deepseek-ai/dsh-tools.scheduler')
++  })
++})

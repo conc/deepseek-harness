@@ -22,6 +22,7 @@
 | 目录 | 改动 | 上游基线 | 入口 |
 |---|---|---|---|
 | [`session-deletion/`](session-deletion/) | 会话删除：Host 侧 `SessionDeleteController`，Web Client 侧菜单项与确认弹窗，并把 `SessionPersistence.remove()` 引入为抽象成员 | `112ce776ac`（2026-09-22 12:12） | [README](session-deletion/README.md) |
+| [`tool-runtime-scheduler-symbol/`](tool-runtime-scheduler-symbol/) | 工具调度器 seam 的符号身份：`TOOL_RUNTIME_SCHEDULER` 由普通 `Symbol()` 改为进程级注册符号 `Symbol.for()`，并加回归测试 | `21638c5631`（2026-09-27 22:30） | [README](tool-runtime-scheduler-symbol/README.md) |
 
 > 落地提交**不在此处写死哈希**：本目录自身就随该提交一起提交，写死会立刻自相矛盾。
 > 需要时用 `git log --oneline -- doc/<改动名>` 查。
